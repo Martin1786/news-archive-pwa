@@ -7,7 +7,7 @@ const state = {
   rows: [],          // normalized event records
   filtered: [],
   selectedId: null,
-  filters: { text: '', surname: '', dateFrom: '', dateTo: '', category: '' },
+  filters: { text: '', surname: '', yearFrom: '', yearTo: '', category: '' },
   sort: 'date-desc'
 };
 
@@ -95,8 +95,8 @@ const toast = el('toast');
 
 const searchInput = el('searchInput');
 const surnameInput = el('surnameInput');
-const dateFrom = el('dateFrom');
-const dateTo = el('dateTo');
+const yearFrom = el('yearFrom');
+const yearTo = el('yearTo');
 const sortSelect = el('sortSelect');
 const clearFiltersBtn = el('clearFiltersBtn');
 
@@ -138,36 +138,36 @@ async function init() {
 }
 
 function bindEvents() {
-  refreshBtn.addEventListener('click', () => refreshData(true));
+  refreshBtn?.addEventListener('click', () => refreshData(true));
 
-  searchInput.addEventListener('input', debounce(() => {
+  searchInput?.addEventListener('input', debounce(() => {
     state.filters.text = searchInput.value.trim().toLowerCase();
     applyFiltersAndRender();
   }, 150));
 
-  surnameInput.addEventListener('input', debounce(() => {
+  surnameInput?.addEventListener('input', debounce(() => {
     state.filters.surname = surnameInput.value.trim().toLowerCase();
     applyFiltersAndRender();
   }, 150));
 
-  dateFrom.addEventListener('change', () => {
-    state.filters.dateFrom = dateFrom.value;
+  yearFrom?.addEventListener('input', debounce(() => {
+    state.filters.yearFrom = yearFrom.value ? parseInt(yearFrom.value, 10) : '';
     applyFiltersAndRender();
-  });
-  dateTo.addEventListener('change', () => {
-    state.filters.dateTo = dateTo.value;
+  }, 150));
+  yearTo?.addEventListener('input', debounce(() => {
+    state.filters.yearTo = yearTo.value ? parseInt(yearTo.value, 10) : '';
     applyFiltersAndRender();
-  });
+  }, 150));
 
-  sortSelect.addEventListener('change', () => {
+  sortSelect?.addEventListener('change', () => {
     state.sort = sortSelect.value;
     applyFiltersAndRender();
   });
 
-  clearFiltersBtn.addEventListener('click', clearFilters);
-  emptyClearBtn.addEventListener('click', clearFilters);
+  clearFiltersBtn?.addEventListener('click', clearFilters);
+  emptyClearBtn?.addEventListener('click', clearFilters);
 
-  closeDetailBtn.addEventListener('click', () => {
+  closeDetailBtn?.addEventListener('click', () => {
     detailPane.classList.remove('is-open');
   });
 
@@ -176,11 +176,11 @@ function bindEvents() {
 }
 
 function clearFilters() {
-  state.filters = { text: '', surname: '', dateFrom: '', dateTo: '', category: '' };
-  searchInput.value = '';
-  surnameInput.value = '';
-  dateFrom.value = '';
-  dateTo.value = '';
+  state.filters = { text: '', surname: '', yearFrom: '', yearTo: '', category: '' };
+  if (searchInput) searchInput.value = '';
+  if (surnameInput) surnameInput.value = '';
+  if (yearFrom) yearFrom.value = '';
+  if (yearTo) yearTo.value = '';
   [...categoryChips.children].forEach(c => c.classList.toggle('is-active', c.dataset.category === ''));
   applyFiltersAndRender();
 }
@@ -314,8 +314,9 @@ function applyFiltersAndRender() {
         .join(' ').toLowerCase();
       if (!hay.includes(f.text)) return false;
     }
-    if (f.dateFrom && (!r.date.iso || r.date.iso < f.dateFrom)) return false;
-    if (f.dateTo && (!r.date.iso || r.date.iso > f.dateTo)) return false;
+    const entryYear = r.date.iso ? parseInt(r.date.iso.slice(0, 4), 10) : null;
+    if (f.yearFrom && (!entryYear || entryYear < f.yearFrom)) return false;
+    if (f.yearTo && (!entryYear || entryYear > f.yearTo)) return false;
     return true;
   });
 
