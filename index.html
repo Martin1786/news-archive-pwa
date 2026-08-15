@@ -33,6 +33,9 @@
 
   <!-- ───────── Rail: search & filters ───────── -->
   <aside class="rail" id="rail">
+    <details class="rail-details" open>
+      <summary class="rail-summary">Search &amp; filters</summary>
+      <div class="rail-body">
     <div class="field-group">
       <label for="searchInput" class="field-label">Free text</label>
       <input type="search" id="searchInput" class="text-input" placeholder="Search names, notes, newspaper…" autocomplete="off">
@@ -74,6 +77,8 @@
     <button id="clearFiltersBtn" class="text-btn">Clear filters</button>
 
     <div class="rail-count" id="resultCount" aria-live="polite"></div>
+      </div>
+    </details>
   </aside>
 
   <!-- ───────── Index list ───────── -->

@@ -201,6 +201,12 @@ async function init() {
 }
 
 function bindEvents() {
+  const railDetails = document.querySelector('.rail-details');
+  const tabletMQ = window.matchMedia('(min-width: 700px)');
+  const syncRailOpen = () => { if (railDetails && tabletMQ.matches) railDetails.open = true; };
+  syncRailOpen();
+  tabletMQ.addEventListener('change', syncRailOpen);
+
   refreshBtn?.addEventListener('click', () => refreshData(true));
 
   searchInput?.addEventListener('input', debounce(() => {
@@ -492,7 +498,7 @@ function selectEntry(id) {
   const r = state.rows.find(row => row.id === id);
   if (!r) return;
   renderDetail(r);
-  if (window.matchMedia('(max-width: 980px)').matches) {
+  if (window.matchMedia('(max-width: 1023px)').matches) {
     detailPane.classList.add('is-open');
   }
 }
