@@ -288,6 +288,12 @@ button {
   border-radius: 2px;
 }
 
+.newspaper-name {
+  font-family: var(--font-ui);
+  font-weight: 600;
+  font-size: 0.78rem;
+}
+
 .index-card-notes {
   font-family: var(--font-body);
   font-size: 0.85rem;

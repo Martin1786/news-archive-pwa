@@ -82,6 +82,38 @@ const FIELD_ALIASES = {
 };
 
 /* ────────────────────────────────────────────────────────────
+   Newspaper colour-coding — each distinct newspaper name gets a
+   consistent colour from this palette (same paper = same colour
+   every time, no matter the order entries load in).
+   ──────────────────────────────────────────────────────────── */
+const NEWSPAPER_COLORS = [
+  '#8c3a2b', // brick red
+  '#2f5d62', // deep teal
+  '#4a5b8c', // ink blue
+  '#7a6b2f', // ochre / mustard
+  '#5c3d6e', // plum
+  '#3f6b3f', // forest green
+  '#8a4b2f', // burnt orange
+  '#4f4a3d', // slate brown
+  '#6e3b4a', // wine
+  '#3d6b6b'  // cyan-teal
+];
+
+function hashString(str) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash * 31 + str.charCodeAt(i)) >>> 0;
+  }
+  return hash;
+}
+
+function colorForNewspaper(name) {
+  if (!name) return null;
+  const idx = hashString(name.trim().toLowerCase()) % NEWSPAPER_COLORS.length;
+  return NEWSPAPER_COLORS[idx];
+}
+
+/* ────────────────────────────────────────────────────────────
    DOM refs
    ──────────────────────────────────────────────────────────── */
 const el = (id) => document.getElementById(id);
@@ -408,7 +440,7 @@ function buildIndexCard(r) {
     </div>
     <div class="index-card-sub">
       ${r.category ? `<span class="category-tag">${escapeHtml(r.category)}</span>` : ''}
-      <span>${escapeHtml(r.newspaper || '')}</span>
+      ${r.newspaper ? `<span class="newspaper-name" style="color:${colorForNewspaper(r.newspaper)}">${escapeHtml(r.newspaper)}</span>` : ''}
     </div>
     ${r.notes ? `<div class="index-card-notes">${escapeHtml(r.notes)}</div>` : ''}
   `;
@@ -436,6 +468,8 @@ function renderDetail(r) {
   el('recordName').textContent = [r.surname, r.forename].filter(Boolean).join(', ') || '(name not recorded)';
   el('recordDate').textContent = r.date.display || '—';
   el('recordNewspaper').textContent = r.newspaper || '—';
+  el('recordNewspaper').style.color = r.newspaper ? colorForNewspaper(r.newspaper) : '';
+  el('recordNewspaper').style.fontWeight = r.newspaper ? '600' : '';
   el('recordId').textContent = r.id;
 
   const notesWrap = el('recordNotesWrap');
