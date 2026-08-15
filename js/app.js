@@ -87,16 +87,18 @@ const FIELD_ALIASES = {
    every time, no matter the order entries load in).
    ──────────────────────────────────────────────────────────── */
 const NEWSPAPER_COLORS = [
-  '#8c3a2b', // brick red
-  '#2f5d62', // deep teal
-  '#4a5b8c', // ink blue
-  '#7a6b2f', // ochre / mustard
-  '#5c3d6e', // plum
-  '#3f6b3f', // forest green
-  '#8a4b2f', // burnt orange
-  '#4f4a3d', // slate brown
-  '#6e3b4a', // wine
-  '#3d6b6b'  // cyan-teal
+  '#a12b2b', // brick red
+  '#2b7a4b', // green
+  '#2b4ba1', // blue
+  '#a1792b', // amber / gold
+  '#6b2ba1', // purple
+  '#2ba19a', // teal
+  '#a15a2b', // burnt orange
+  '#a12b7a', // magenta / pink
+  '#4b2ba1', // indigo
+  '#2b6ba1', // sky blue
+  '#6a7a2b', // olive
+  '#7a2b4b'  // wine
 ];
 
 function hashString(str) {
@@ -111,6 +113,34 @@ function colorForNewspaper(name) {
   if (!name) return null;
   const idx = hashString(name.trim().toLowerCase()) % NEWSPAPER_COLORS.length;
   return NEWSPAPER_COLORS[idx];
+}
+
+/* ────────────────────────────────────────────────────────────
+   Category colour-coding — known categories get a deliberately
+   chosen colour pair (text + soft background tint). Anything
+   unexpected falls back to a hashed pick from a spare palette,
+   so the UI still works if new category values appear later.
+   ──────────────────────────────────────────────────────────── */
+const CATEGORY_COLOR_MAP = {
+  obits: { text: '#7a2b2b', bg: '#f3dcdc' },
+  people: { text: '#2b4b7a', bg: '#dbe6f5' },
+  property: { text: '#7a6b1f', bg: '#f3ecd0' },
+  enclosure: { text: '#5c3d6e', bg: '#ecdcf0' }
+};
+
+const CATEGORY_FALLBACK_COLORS = [
+  { text: '#2b7a72', bg: '#d7f0ec' },
+  { text: '#7a3d2b', bg: '#f3ded4' },
+  { text: '#3d5c2b', bg: '#e3edd7' },
+  { text: '#2b3d7a', bg: '#dbe0f3' }
+];
+
+function colorForCategory(name) {
+  if (!name) return null;
+  const key = name.trim().toLowerCase();
+  if (CATEGORY_COLOR_MAP[key]) return CATEGORY_COLOR_MAP[key];
+  const idx = hashString(key) % CATEGORY_FALLBACK_COLORS.length;
+  return CATEGORY_FALLBACK_COLORS[idx];
 }
 
 /* ────────────────────────────────────────────────────────────
@@ -400,6 +430,11 @@ function makeChip(label, value) {
   btn.className = 'chip' + (value === state.filters.category ? ' is-active' : '');
   btn.textContent = label;
   btn.dataset.category = value;
+  const colorPair = value ? colorForCategory(value) : null;
+  if (colorPair) {
+    btn.style.setProperty('--chip-color', colorPair.text);
+    btn.style.setProperty('--chip-bg', colorPair.bg);
+  }
   if (value === '') btn.classList.toggle('is-active', !state.filters.category);
   btn.addEventListener('click', () => {
     state.filters.category = value;
@@ -433,13 +468,15 @@ function buildIndexCard(r) {
 
   const name = [r.surname, r.forename].filter(Boolean).join(', ') || '(name not recorded)';
 
+  const catColor = r.category ? colorForCategory(r.category) : null;
+
   card.innerHTML = `
     <div class="index-card-top">
       <span class="index-card-name">${escapeHtml(name)}</span>
       <span class="index-card-date">${escapeHtml(r.date.display || '—')}</span>
     </div>
     <div class="index-card-sub">
-      ${r.category ? `<span class="category-tag">${escapeHtml(r.category)}</span>` : ''}
+      ${catColor ? `<span class="category-tag" style="color:${catColor.text};background:${catColor.bg}">${escapeHtml(r.category)}</span>` : ''}
       ${r.newspaper ? `<span class="newspaper-name" style="color:${colorForNewspaper(r.newspaper)}">${escapeHtml(r.newspaper)}</span>` : ''}
     </div>
     ${r.notes ? `<div class="index-card-notes">${escapeHtml(r.notes)}</div>` : ''}
@@ -464,7 +501,11 @@ function renderDetail(r) {
   detailPlaceholder.hidden = true;
   recordCard.hidden = false;
 
-  el('recordCategory').textContent = r.category || 'Uncategorised';
+  const catColor = r.category ? colorForCategory(r.category) : null;
+  const stampEl = el('recordCategory');
+  stampEl.textContent = r.category || 'Uncategorised';
+  stampEl.style.color = catColor ? catColor.text : '';
+  stampEl.style.borderColor = catColor ? catColor.text : '';
   el('recordName').textContent = [r.surname, r.forename].filter(Boolean).join(', ') || '(name not recorded)';
   el('recordDate').textContent = r.date.display || '—';
   el('recordNewspaper').textContent = r.newspaper || '—';

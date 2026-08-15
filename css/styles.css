@@ -184,13 +184,13 @@ button {
   font-size: 0.76rem;
   padding: 0.3rem 0.65rem;
   border-radius: 999px;
-  border: 1px solid var(--rule);
-  background: #fff;
-  color: var(--ink-soft);
+  border: 1px solid var(--chip-color, var(--rule));
+  background: var(--chip-bg, #fff);
+  color: var(--chip-color, var(--ink-soft));
 }
 .chip.is-active {
-  background: var(--stamp);
-  border-color: var(--stamp);
+  background: var(--chip-color, var(--stamp));
+  border-color: var(--chip-color, var(--stamp));
   color: #fff;
 }
 
