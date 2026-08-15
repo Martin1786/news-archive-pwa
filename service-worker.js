@@ -2,7 +2,7 @@
 // data or Drive images — those are always fetched live so the archive
 // stays accurate. This just lets the app *open* while offline.
 
-const CACHE_NAME = 'news-archive-shell-v2';
+const CACHE_NAME = 'news-archive-shell-v3';
 const SHELL_FILES = [
   './',
   './index.html',

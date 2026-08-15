@@ -75,6 +75,7 @@ const FIELD_ALIASES = {
   newspaper: ['newspaper'],
   notes: ['notes'],
   image: ['image'],
+  imageUrl: ['pwa_image_url', 'pwa image url', 'pwaimageurl'],
   category: ['category'],
   submittedDate: ['submitted date', 'submitteddate'],
   submittedBy: ['submitted by', 'submittedby']
@@ -276,29 +277,39 @@ function gvizCellToDate(cell) {
 }
 
 /* ────────────────────────────────────────────────────────────
-   Image resolution — parses a full Drive share link (or a bare
-   file ID) straight out of the Image column. No API key needed;
-   each file just needs to be shared "Anyone with the link".
+   Image resolution.
+   Prefers the PWA_Image_URL column (a ready-to-use link you add
+   per row) and falls back to parsing a Drive share link/ID out of
+   the legacy Image column. Any plain https URL is used as-is;
+   Drive links/IDs are turned into a reliable thumbnail URL.
+   No API key needed — each file just needs to be shared
+   "Anyone with the link".
    ──────────────────────────────────────────────────────────── */
-function resolveImage(imageValue) {
-  if (!imageValue) return null;
-  const val = imageValue.trim();
-
-  let id = null;
+function extractDriveId(val) {
   let m = val.match(/\/file\/d\/([^/]+)/);       // .../file/d/ID/view
   if (!m) m = val.match(/[?&]id=([^&]+)/);        // open?id=ID or uc?id=ID
-  if (m) {
-    id = m[1];
-  } else if (/^[a-zA-Z0-9_-]{15,}$/.test(val) && !val.includes('/')) {
-    id = val; // looks like a bare Drive file ID
+  if (m) return m[1];
+  if (/^[a-zA-Z0-9_-]{15,}$/.test(val) && !val.includes('/')) return val; // bare file ID
+  return null;
+}
+
+function resolveImage(record) {
+  const candidates = [record.imageUrl, record.image].filter(Boolean);
+  for (const raw of candidates) {
+    const val = raw.trim();
+    if (!val) continue;
+    const id = extractDriveId(val);
+    if (id) {
+      return {
+        thumb: `https://drive.google.com/thumbnail?id=${id}&sz=w1200`,
+        view: `https://drive.google.com/uc?export=view&id=${id}`
+      };
+    }
+    if (/^https?:\/\//i.test(val)) {
+      return { thumb: val, view: val }; // already a usable, hosted image URL
+    }
   }
-
-  if (!id) return null; // e.g. still a folder-relative path, not yet a link
-
-  return {
-    thumb: `https://drive.google.com/thumbnail?id=${id}&sz=w1200`,
-    view: `https://drive.google.com/uc?export=view&id=${id}`
-  };
+  return null;
 }
 
 /* ────────────────────────────────────────────────────────────
@@ -437,7 +448,7 @@ function renderDetail(r) {
 
   const imgWrap = el('recordImageWrap');
   const imgEl = el('recordImage');
-  const resolved = resolveImage(r.image);
+  const resolved = resolveImage(r);
   if (resolved) {
     imgWrap.hidden = false;
     imgEl.src = resolved.thumb;

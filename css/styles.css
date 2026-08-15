@@ -173,6 +173,7 @@ button {
   background: #fff;
   color: var(--ink);
   width: 100%;
+  min-width: 0;
 }
 .text-input:focus { border-color: var(--focus); }
 
