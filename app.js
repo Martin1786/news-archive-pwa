@@ -57,6 +57,29 @@ function isFresh(savedAt) {
   return (Date.now() - savedAt) < CONFIG.CACHE_HOURS * 60 * 60 * 1000;
 }
 
+function wipeDatabase() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.deleteDatabase(DB_NAME);
+    req.onsuccess = () => resolve();
+    req.onerror = (e) => reject(e.target.error);
+    req.onblocked = () => resolve(); // still counts as cleared once the open handle closes
+  });
+}
+
+async function clearCacheAndRefresh() {
+  if (clearCacheBtn) clearCacheBtn.disabled = true;
+  try {
+    await wipeDatabase();
+    showToast('Cache cleared — fetching fresh data…');
+    await refreshData(true);
+  } catch (e) {
+    console.error('Cache wipe failed:', e);
+    showToast('Could not clear cache — try DevTools → Application → Storage instead.');
+  } finally {
+    if (clearCacheBtn) clearCacheBtn.disabled = false;
+  }
+}
+
 function formatSyncTime(ts) {
   const d = new Date(ts);
   return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
@@ -116,11 +139,40 @@ function colorForNewspaper(name) {
 }
 
 /* ────────────────────────────────────────────────────────────
+   Category colour-coding — known categories get a deliberately
+   chosen colour pair (text + soft background tint). Anything
+   unexpected falls back to a hashed pick from a spare palette,
+   so the UI still works if new category values appear later.
+   ──────────────────────────────────────────────────────────── */
+const CATEGORY_COLOR_MAP = {
+  obits: { text: '#7a2b2b', bg: '#f3dcdc' },
+  people: { text: '#2b4b7a', bg: '#dbe6f5' },
+  property: { text: '#7a6b1f', bg: '#f3ecd0' },
+  enclosure: { text: '#5c3d6e', bg: '#ecdcf0' }
+};
+
+const CATEGORY_FALLBACK_COLORS = [
+  { text: '#2b7a72', bg: '#d7f0ec' },
+  { text: '#7a3d2b', bg: '#f3ded4' },
+  { text: '#3d5c2b', bg: '#e3edd7' },
+  { text: '#2b3d7a', bg: '#dbe0f3' }
+];
+
+function colorForCategory(name) {
+  if (!name) return null;
+  const key = name.trim().toLowerCase();
+  if (CATEGORY_COLOR_MAP[key]) return CATEGORY_COLOR_MAP[key];
+  const idx = hashString(key) % CATEGORY_FALLBACK_COLORS.length;
+  return CATEGORY_FALLBACK_COLORS[idx];
+}
+
+/* ────────────────────────────────────────────────────────────
    DOM refs
    ──────────────────────────────────────────────────────────── */
 const el = (id) => document.getElementById(id);
 const statusText = el('statusText');
 const refreshBtn = el('refreshBtn');
+const clearCacheBtn = el('clearCacheBtn');
 const cardList = el('cardList');
 const emptyState = el('emptyState');
 const emptyClearBtn = el('emptyClearBtn');
@@ -173,7 +225,14 @@ async function init() {
 }
 
 function bindEvents() {
+  const railDetails = document.querySelector('.rail-details');
+  const tabletMQ = window.matchMedia('(min-width: 700px)');
+  const syncRailOpen = () => { if (railDetails && tabletMQ.matches) railDetails.open = true; };
+  syncRailOpen();
+  tabletMQ.addEventListener('change', syncRailOpen);
+
   refreshBtn?.addEventListener('click', () => refreshData(true));
+  clearCacheBtn?.addEventListener('click', clearCacheAndRefresh);
 
   searchInput?.addEventListener('input', debounce(() => {
     state.filters.text = searchInput.value.trim().toLowerCase();
@@ -254,7 +313,7 @@ async function refreshData(showSpinner) {
 
 async function fetchSheetRows() {
   const url = `https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/gviz/tq?tqx=out:json&gid=${CONFIG.SHEET_GID}`;
-  const res = await fetch(url);
+  const res = await fetch(url, { cache: 'no-store' });
   if (!res.ok) throw new Error('Sheet fetch failed: ' + res.status);
   const text = await res.text();
   const jsonStart = text.indexOf('{');
@@ -402,6 +461,11 @@ function makeChip(label, value) {
   btn.className = 'chip' + (value === state.filters.category ? ' is-active' : '');
   btn.textContent = label;
   btn.dataset.category = value;
+  const colorPair = value ? colorForCategory(value) : null;
+  if (colorPair) {
+    btn.style.setProperty('--chip-color', colorPair.text);
+    btn.style.setProperty('--chip-bg', colorPair.bg);
+  }
   if (value === '') btn.classList.toggle('is-active', !state.filters.category);
   btn.addEventListener('click', () => {
     state.filters.category = value;
@@ -435,13 +499,15 @@ function buildIndexCard(r) {
 
   const name = [r.surname, r.forename].filter(Boolean).join(', ') || '(name not recorded)';
 
+  const catColor = r.category ? colorForCategory(r.category) : null;
+
   card.innerHTML = `
     <div class="index-card-top">
       <span class="index-card-name">${escapeHtml(name)}</span>
       <span class="index-card-date">${escapeHtml(r.date.display || '—')}</span>
     </div>
     <div class="index-card-sub">
-      ${r.category ? `<span class="category-tag">${escapeHtml(r.category)}</span>` : ''}
+      ${catColor ? `<span class="category-tag" style="color:${catColor.text};background:${catColor.bg}">${escapeHtml(r.category)}</span>` : ''}
       ${r.newspaper ? `<span class="newspaper-name" style="color:${colorForNewspaper(r.newspaper)}">${escapeHtml(r.newspaper)}</span>` : ''}
     </div>
     ${r.notes ? `<div class="index-card-notes">${escapeHtml(r.notes)}</div>` : ''}
@@ -457,7 +523,7 @@ function selectEntry(id) {
   const r = state.rows.find(row => row.id === id);
   if (!r) return;
   renderDetail(r);
-  if (window.matchMedia('(max-width: 980px)').matches) {
+  if (window.matchMedia('(max-width: 1023px)').matches) {
     detailPane.classList.add('is-open');
   }
 }
@@ -466,7 +532,11 @@ function renderDetail(r) {
   detailPlaceholder.hidden = true;
   recordCard.hidden = false;
 
-  el('recordCategory').textContent = r.category || 'Uncategorised';
+  const catColor = r.category ? colorForCategory(r.category) : null;
+  const stampEl = el('recordCategory');
+  stampEl.textContent = r.category || 'Uncategorised';
+  stampEl.style.color = catColor ? catColor.text : '';
+  stampEl.style.borderColor = catColor ? catColor.text : '';
   el('recordName').textContent = [r.surname, r.forename].filter(Boolean).join(', ') || '(name not recorded)';
   el('recordDate').textContent = r.date.display || '—';
   el('recordNewspaper').textContent = r.newspaper || '—';
