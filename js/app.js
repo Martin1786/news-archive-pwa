@@ -57,6 +57,29 @@ function isFresh(savedAt) {
   return (Date.now() - savedAt) < CONFIG.CACHE_HOURS * 60 * 60 * 1000;
 }
 
+function wipeDatabase() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.deleteDatabase(DB_NAME);
+    req.onsuccess = () => resolve();
+    req.onerror = (e) => reject(e.target.error);
+    req.onblocked = () => resolve(); // still counts as cleared once the open handle closes
+  });
+}
+
+async function clearCacheAndRefresh() {
+  if (clearCacheBtn) clearCacheBtn.disabled = true;
+  try {
+    await wipeDatabase();
+    showToast('Cache cleared — fetching fresh data…');
+    await refreshData(true);
+  } catch (e) {
+    console.error('Cache wipe failed:', e);
+    showToast('Could not clear cache — try DevTools → Application → Storage instead.');
+  } finally {
+    if (clearCacheBtn) clearCacheBtn.disabled = false;
+  }
+}
+
 function formatSyncTime(ts) {
   const d = new Date(ts);
   return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
@@ -149,6 +172,7 @@ function colorForCategory(name) {
 const el = (id) => document.getElementById(id);
 const statusText = el('statusText');
 const refreshBtn = el('refreshBtn');
+const clearCacheBtn = el('clearCacheBtn');
 const cardList = el('cardList');
 const emptyState = el('emptyState');
 const emptyClearBtn = el('emptyClearBtn');
@@ -208,6 +232,7 @@ function bindEvents() {
   tabletMQ.addEventListener('change', syncRailOpen);
 
   refreshBtn?.addEventListener('click', () => refreshData(true));
+  clearCacheBtn?.addEventListener('click', clearCacheAndRefresh);
 
   searchInput?.addEventListener('input', debounce(() => {
     state.filters.text = searchInput.value.trim().toLowerCase();
@@ -288,7 +313,7 @@ async function refreshData(showSpinner) {
 
 async function fetchSheetRows() {
   const url = `https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/gviz/tq?tqx=out:json&gid=${CONFIG.SHEET_GID}`;
-  const res = await fetch(url);
+  const res = await fetch(url, { cache: 'no-store' });
   if (!res.ok) throw new Error('Sheet fetch failed: ' + res.status);
   const text = await res.text();
   const jsonStart = text.indexOf('{');
