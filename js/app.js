@@ -262,7 +262,7 @@ function bindEvents() {
   emptyClearBtn?.addEventListener('click', clearFilters);
 
   closeDetailBtn?.addEventListener('click', () => {
-    detailPane.classList.remove('is-open');
+    requestCloseDetail();
   });
 
   window.addEventListener('online', () => setStatus(`Back online · ${state.rows.length} entries`));
@@ -517,6 +517,8 @@ function buildIndexCard(r) {
   return card;
 }
 
+let detailHistoryPushed = false;
+
 function selectEntry(id) {
   state.selectedId = id;
   renderList(); // to update is-selected highlight
@@ -525,8 +527,34 @@ function selectEntry(id) {
   renderDetail(r);
   if (window.matchMedia('(max-width: 1023px)').matches) {
     detailPane.classList.add('is-open');
+    if (!detailHistoryPushed) {
+      history.pushState({ archiveDetailOpen: true }, '', '');
+      detailHistoryPushed = true;
+    }
   }
 }
+
+function closeDetailOverlay() {
+  detailPane.classList.remove('is-open');
+  detailHistoryPushed = false;
+}
+
+function requestCloseDetail() {
+  // If we pushed a history entry for this open detail view, let the
+  // back navigation trigger popstate (below), which does the actual
+  // closing — keeps the browser's back stack and our UI state in sync.
+  if (detailHistoryPushed) {
+    history.back();
+  } else {
+    closeDetailOverlay();
+  }
+}
+
+window.addEventListener('popstate', () => {
+  if (detailPane.classList.contains('is-open')) {
+    closeDetailOverlay();
+  }
+});
 
 function renderDetail(r) {
   detailPlaceholder.hidden = true;
